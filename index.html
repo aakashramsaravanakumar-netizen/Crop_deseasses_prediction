@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriScan AI - Live Crop Disease Prediction & Foliar Diagnostic System</title>
+    <meta name="description" content="State-of-the-art live crop disease detection system powered by computer vision, real-time webcam analysis, agronomic treatment protocols, and historical analytics.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            450: '#10b981',
+                            550: '#059669',
+                            950: '#031f13'
+                        },
+                        forest: {
+                            900: '#060d09',
+                            800: '#0c1a13',
+                            700: '#13281e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-forest-900 text-slate-100 min-h-screen selection:bg-emerald-500 selection:text-black">
+
+    <!-- =========================================================================
+         Top Navigation Bar
+         ========================================================================= -->
+    <header class="sticky top-0 z-50 backdrop-blur-xl bg-forest-900/80 border-b border-emerald-950/80 px-4 lg:px-8 py-3.5 transition-all">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <!-- Brand Logo -->
+            <div class="flex items-center gap-3">
+                <div class="relative w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/25 ring-1 ring-emerald-300/30">
+                    <i class="fa-solid fa-seedling text-forest-900 text-xl"></i>
+                    <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-lime-400 border-2 border-forest-900 rounded-full"></span>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-display font-extrabold text-xl tracking-tight bg-gradient-to-r from-emerald-300 via-emerald-400 to-teal-200 bg-clip-text text-transparent">AgriScan AI</span>
+                        <span class="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full">v2.5 Vision</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Deep Foliar Pathology & Crop Disease Diagnostic Suite</p>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+                <a href="#scanner-station" class="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-camera text-xs text-emerald-400"></i> Scanner
+                </a>
+                <a href="#diagnostic-panel" class="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-microscope text-xs text-teal-400"></i> Diagnostics
+                </a>
+                <a href="#analytics-section" class="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-pie text-xs text-lime-400"></i> Analytics
+                </a>
+                <a href="#scan-history-section" class="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-clock-rotate-left text-xs text-cyan-400"></i> Records
+                </a>
+            </nav>
+
+            <!-- Status Pill & Settings -->
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/25 text-xs text-emerald-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-emerald"></span>
+                    <span id="headerModelStatus" class="font-mono text-[11px]">NEURAL CORE READY</span>
+                </div>
+                <button id="btnOpenSettings" title="Inference Backend Settings" class="w-9 h-9 rounded-lg bg-forest-800 hover:bg-forest-700 border border-emerald-500/20 text-slate-300 hover:text-emerald-300 flex items-center justify-center transition-all hover:scale-105">
+                    <i class="fa-solid fa-sliders text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- =========================================================================
+         Summary Statistics Counter Bar
+         ========================================================================= -->
+    <section class="max-w-7xl mx-auto px-4 lg:px-8 pt-6 pb-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
+            <!-- Stat 1: Total Scans -->
+            <div class="glass-panel p-4 flex items-center gap-3.5 border-emerald-500/15">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl shadow-inner shadow-emerald-500/10">
+                    <i class="fa-solid fa-qrcode"></i>
+                </div>
+                <div>
+                    <span class="text-xs uppercase font-medium tracking-wider text-slate-400">Total Scans</span>
+                    <div class="text-2xl font-display font-bold text-white flex items-baseline gap-1.5">
+                        <span id="statTotalScans" class="stat-counter">0</span>
+                        <span class="text-[10px] text-emerald-400 font-mono"><i class="fa-solid fa-arrow-trend-up"></i> Live</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat 2: Healthy Crop Rate -->
+            <div class="glass-panel p-4 flex items-center gap-3.5 border-emerald-500/15">
+                <div class="w-12 h-12 rounded-xl bg-lime-500/10 border border-lime-500/30 flex items-center justify-center text-lime-400 text-xl shadow-inner shadow-lime-500/10">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <div>
+                    <span class="text-xs uppercase font-medium tracking-wider text-slate-400">Healthy Rate</span>
+                    <div class="text-2xl font-display font-bold text-white flex items-baseline gap-1">
+                        <span id="statHealthyRate" class="stat-counter">0</span>
+                        <span class="text-emerald-400 font-bold">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat 3: Diseased Foliage -->
+            <div class="glass-panel p-4 flex items-center gap-3.5 border-emerald-500/15">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl shadow-inner shadow-amber-500/10">
+                    <i class="fa-solid fa-bacteria"></i>
+                </div>
+                <div>
+                    <span class="text-xs uppercase font-medium tracking-wider text-slate-400">Infections Found</span>
+                    <div class="text-2xl font-display font-bold text-white flex items-baseline gap-1.5">
+                        <span id="statDiseasedCount" class="stat-counter">0</span>
+                        <span class="text-[10px] text-amber-400 font-mono">Monitored</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat 4: Critical Interventions -->
+            <div class="glass-panel p-4 flex items-center gap-3.5 border-emerald-500/15">
+                <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xl shadow-inner shadow-rose-500/10">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <span class="text-xs uppercase font-medium tracking-wider text-slate-400">Critical Alerts</span>
+                    <div class="text-2xl font-display font-bold text-rose-300 flex items-baseline gap-1.5">
+                        <span id="statCriticalCount" class="stat-counter">0</span>
+                        <span class="text-[10px] text-rose-400 font-mono">Action Req</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         Main Interactive Workspace (Scanner Station + Diagnostic Panel)
+         ========================================================================= -->
+    <main class="max-w-7xl mx-auto px-4 lg:px-8 py-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- =================================================================
+                 Left Column: Live Camera Scanner Module (5 / 12 cols on desktop)
+                 ================================================================= -->
+            <div id="scanner-station" class="lg:col-span-5 space-y-4">
+                <div class="glass-panel p-4 sm:p-5 relative overflow-hidden">
+                    <!-- Scanner Header -->
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-emerald"></span>
+                            <h2 class="font-display font-bold text-base text-white">Live Foliage Scanner</h2>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                            <span id="scannerModeBadge" class="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500/20 text-emerald-300 font-mono text-[10px]">
+                                WEBCAM FEED
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Video Viewport / HUD Screen -->
+                    <div id="scannerViewport" class="scanner-viewport relative aspect-[4/3] w-full border border-emerald-500/30 rounded-xl group flex items-center justify-center">
+                        
+                        <!-- HUD Target Brackets -->
+                        <div class="hud-corner hud-tl"></div>
+                        <div class="hud-corner hud-tr"></div>
+                        <div class="hud-corner hud-bl"></div>
+                        <div class="hud-corner hud-br"></div>
+
+                        <!-- Center Target Reticle -->
+                        <div class="hud-target-reticle"></div>
+
+                        <!-- Matrix Grid Lines -->
+                        <div class="scanner-grid"></div>
+
+                        <!-- Animated Glowing Laser Scanner Line -->
+                        <div id="scannerLaser" class="scanner-laser"></div>
+
+                        <!-- Shutter Flash Overlay -->
+                        <div id="cameraFlash" class="camera-flash-overlay"></div>
+
+                        <!-- Live Video Element -->
+                        <video id="webcamVideo" autoplay playsinline muted class="w-full h-full object-cover rounded-xl"></video>
+
+                        <!-- Fallback / Static Preview Image -->
+                        <img id="leafPreviewImage" src="" alt="Foliage Target" class="hidden w-full h-full object-contain rounded-xl bg-forest-950">
+
+                        <!-- HUD Floating Data Overlay -->
+                        <div class="absolute top-3 left-3 z-20 pointer-events-none flex items-center gap-2">
+                            <div class="px-2 py-1 rounded bg-black/60 backdrop-blur-md border border-white/10 font-mono text-[10px] text-emerald-400 flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                                <span id="cameraFpsText">FPS: 30</span>
+                            </div>
+                            <div class="px-2 py-1 rounded bg-black/60 backdrop-blur-md border border-white/10 font-mono text-[10px] text-slate-300">
+                                <span>ISO AUTO</span>
+                            </div>
+                        </div>
+
+                        <!-- Alignment Hint Guide -->
+                        <div id="scannerGuideText" class="absolute bottom-3 inset-x-0 mx-auto text-center z-20 pointer-events-none">
+                            <span class="inline-block px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-emerald-500/20 text-[11px] font-mono text-emerald-300 shadow-lg">
+                                <i class="fa-solid fa-arrows-to-dot mr-1 text-emerald-400"></i> Center infected leaf in reticle
+                            </span>
+                        </div>
+
+                        <!-- Scanner In-Progress Overlay -->
+                        <div id="scanningProgressOverlay" class="absolute inset-0 bg-black/75 backdrop-blur-sm z-25 hidden flex flex-col items-center justify-center p-6 text-center">
+                            <div class="relative w-20 h-20 mb-4">
+                                <div class="absolute inset-0 rounded-full border-2 border-emerald-500/20 border-t-emerald-400 animate-spin"></div>
+                                <div class="absolute inset-2 rounded-full border-2 border-teal-500/20 border-b-teal-400 animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
+                                <div class="absolute inset-0 flex items-center justify-center text-emerald-400 text-xl">
+                                    <i class="fa-solid fa-microchip animate-pulse"></i>
+                                </div>
+                            </div>
+                            <h3 class="font-display font-bold text-lg text-white mb-1">Deep Foliar Scan in Progress</h3>
+                            <p id="scanningStageLabel" class="text-xs font-mono text-emerald-300/90 h-5">Segmenting foliar contours...</p>
+                            
+                            <!-- Progress Bar -->
+                            <div class="w-48 bg-slate-800 rounded-full h-1.5 mt-3 overflow-hidden border border-white/10">
+                                <div id="scanningProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-300"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden Scratch Canvas for pixel frame grabbing -->
+                    <canvas id="snapshotCanvas" class="hidden"></canvas>
+
+                    <!-- Camera Quick Controls Strip -->
+                    <div class="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-white/5 text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <button id="btnSwitchCamera" title="Switch Front/Rear Camera" class="px-2.5 py-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-emerald-500/20 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-camera-rotate text-emerald-400"></i>
+                                <span class="hidden sm:inline">Flip</span>
+                            </button>
+                            <button id="btnToggleTorch" title="Toggle Flash Torch" class="px-2.5 py-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-emerald-500/20 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                                <span class="hidden sm:inline">Torch</span>
+                            </button>
+                            <button id="btnToggleStream" title="Pause / Resume Live Feed" class="px-2.5 py-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-emerald-500/20 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-video text-teal-400"></i>
+                                <span class="hidden sm:inline">Webcam</span>
+                            </button>
+                        </div>
+
+                        <!-- Drag and Drop Upload Trigger -->
+                        <div>
+                            <input type="file" id="fileLeafInput" accept="image/jpeg,image/png,image/webp" class="hidden">
+                            <button id="btnTriggerUpload" class="px-3 py-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-emerald-500/20 text-slate-300 hover:text-emerald-300 transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i>
+                                <span>Upload Leaf</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Big Tactile "Capture & Analyze" Action Button -->
+                    <div class="mt-4">
+                        <button id="btnCaptureAnalyze" class="btn-primary-glow w-full py-3.5 px-6 rounded-xl font-display font-bold text-forest-950 text-base flex items-center justify-center gap-3 active:scale-[0.99] transition-all cursor-pointer">
+                            <i class="fa-solid fa-bolt text-lg"></i>
+                            <span id="btnCaptureText">Capture & Analyze Foliage</span>
+                            <span class="text-xs font-mono font-normal opacity-75 hidden sm:inline">[Spacebar]</span>
+                        </button>
+                    </div>
+
+                    <!-- Drag & Drop Zone Fallback Area -->
+                    <div id="dropZoneContainer" class="mt-3 p-3 rounded-xl border border-dashed border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/40 transition-all text-center cursor-pointer">
+                        <p class="text-xs text-slate-400 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-file-arrow-up text-emerald-400"></i>
+                            <span>Or drag and drop high-res leaf image here (PNG, JPG, WebP)</span>
+                        </p>
+                    </div>
+
+                    <!-- Quick Preset Leaves Carousel / Chips (For Instant Testing) -->
+                    <div class="mt-4 pt-3 border-t border-white/5">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-flask text-emerald-400"></i> Quick Test Presets:
+                            </span>
+                            <span class="text-[10px] text-slate-500 font-mono">1-Click Test</span>
+                        </div>
+                        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                            <button data-sample="tomato_late_blight" class="sample-chip p-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-rose-500/30 text-left transition-all hover:scale-105 group">
+                                <div class="text-[11px] font-bold text-rose-300 truncate">Tomato</div>
+                                <div class="text-[10px] text-slate-400 truncate">Late Blight</div>
+                            </button>
+                            <button data-sample="corn_common_rust" class="sample-chip p-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-amber-500/30 text-left transition-all hover:scale-105 group">
+                                <div class="text-[11px] font-bold text-amber-300 truncate">Corn</div>
+                                <div class="text-[10px] text-slate-400 truncate">Common Rust</div>
+                            </button>
+                            <button data-sample="apple_scab" class="sample-chip p-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-rose-500/30 text-left transition-all hover:scale-105 group">
+                                <div class="text-[11px] font-bold text-rose-300 truncate">Apple</div>
+                                <div class="text-[10px] text-slate-400 truncate">Apple Scab</div>
+                            </button>
+                            <button data-sample="rice_leaf_blast" class="sample-chip p-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-rose-500/30 text-left transition-all hover:scale-105 group">
+                                <div class="text-[11px] font-bold text-rose-300 truncate">Rice</div>
+                                <div class="text-[10px] text-slate-400 truncate">Leaf Blast</div>
+                            </button>
+                            <button data-sample="healthy_crop_leaf" class="sample-chip p-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-emerald-500/30 text-left transition-all hover:scale-105 group">
+                                <div class="text-[11px] font-bold text-emerald-300 truncate">Healthy</div>
+                                <div class="text-[10px] text-slate-400 truncate">Zero Disease</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 Right Column: Diagnostic Output Panel (7 / 12 cols on desktop)
+                 ================================================================= -->
+            <div id="diagnostic-panel" class="lg:col-span-7 space-y-4">
+                
+                <!-- Standby / Initial State Card -->
+                <div id="diagStandbyCard" class="glass-panel p-8 text-center border-dashed border-emerald-500/20 flex flex-col items-center justify-center min-h-[460px]">
+                    <div class="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-3xl mb-4 shadow-inner shadow-emerald-500/10">
+                        <i class="fa-solid fa-microscope animate-bounce"></i>
+                    </div>
+                    <h3 class="font-display font-bold text-xl text-white mb-2">Awaiting Foliar Target Capture</h3>
+                    <p class="text-slate-400 text-sm max-w-md mx-auto leading-relaxed mb-6">
+                        Align your crop leaf inside the scanner frame and press <span class="text-emerald-400 font-semibold">"Capture & Analyze"</span> or select one of the quick test presets to evaluate disease markers and generate tailored treatment protocols.
+                    </p>
+                    <div class="flex flex-wrap items-center justify-center gap-3">
+                        <button id="btnQuickDemoScan" class="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-play"></i> Run Quick Demo Scan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Diagnosis Result Card (Shown when scan completes) -->
+                <div id="diagResultCard" class="hidden glass-panel p-5 sm:p-6 space-y-5">
+                    
+                    <!-- Result Top Bar: Crop Name, Disease & Severity Badge -->
+                    <div class="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-white/10">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span id="diagCropBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                    Tomato
+                                </span>
+                                <span id="diagScientificName" class="text-xs text-slate-400 italic">
+                                    Solanum lycopersicum
+                                </span>
+                            </div>
+                            <h2 id="diagDiseaseName" class="font-display font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
+                                Late Blight
+                            </h2>
+                            <p id="diagPathogenLabel" class="text-xs font-mono text-slate-300 mt-0.5">
+                                Pathogen: <span class="text-teal-400">Phytophthora infestans (Oomycete)</span>
+                            </p>
+                        </div>
+
+                        <!-- Dynamic Disease Severity Badge -->
+                        <div class="flex flex-col items-end gap-2">
+                            <div id="diagSeverityBadge" class="severity-badge-critical px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                                <i class="fa-solid fa-circle-exclamation"></i>
+                                <span id="diagSeverityText">Critical Severity</span>
+                            </div>
+                            <span id="diagInferenceTime" class="text-[11px] font-mono text-slate-400">Latency: 142ms</span>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid: Circular Gauge & Biophysical Indices -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center bg-forest-950/60 p-4 rounded-xl border border-white/5">
+                        
+                        <!-- Animated Circular SVG Gauge for Model Confidence (5 / 12) -->
+                        <div class="sm:col-span-5 flex flex-col items-center justify-center">
+                            <div class="relative w-36 h-36">
+                                <svg class="gauge-svg w-full h-full" viewBox="0 0 120 120">
+                                    <!-- Background Track -->
+                                    <circle class="gauge-bg" cx="60" cy="60" r="50" stroke-width="10" fill="none" />
+                                    <!-- Active Progress Arc -->
+                                    <circle id="diagGaugeArc" class="gauge-bar" cx="60" cy="60" r="50" stroke-width="10" 
+                                            stroke="#10b981" fill="none"
+                                            stroke-dasharray="314.159" stroke-dashoffset="314.159" />
+                                </svg>
+                                <!-- Center Text -->
+                                <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                    <span id="diagConfidenceValue" class="text-2xl font-display font-extrabold text-white">96.8%</span>
+                                    <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Confidence</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Biophysical Markers & Differential Candidates (7 / 12) -->
+                        <div class="sm:col-span-7 space-y-3">
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="p-2 rounded-lg bg-forest-900 border border-white/5">
+                                    <div class="text-[10px] text-slate-400 uppercase">Lesion Area</div>
+                                    <div id="diagLesionCoverage" class="text-sm font-bold text-amber-300 font-mono">42%</div>
+                                </div>
+                                <div class="p-2 rounded-lg bg-forest-900 border border-white/5">
+                                    <div class="text-[10px] text-slate-400 uppercase">Chlorosis</div>
+                                    <div id="diagChlorosisIndex" class="text-sm font-bold text-yellow-300 font-mono">0.78</div>
+                                </div>
+                                <div class="p-2 rounded-lg bg-forest-900 border border-white/5">
+                                    <div class="text-[10px] text-slate-400 uppercase">Viability</div>
+                                    <div id="diagViability" class="text-sm font-bold text-emerald-300 font-mono">38%</div>
+                                </div>
+                            </div>
+
+                            <!-- Differential Probabilities Breakdown -->
+                            <div class="space-y-1.5 pt-1">
+                                <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">Differential Probability:</span>
+                                <div id="diagTopProbabilities" class="space-y-1">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Symptoms Summary -->
+                    <div class="p-3.5 rounded-xl bg-forest-950/40 border border-white/5">
+                        <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
+                            <i class="fa-solid fa-notes-medical"></i> Pathology Symptom Manifestation:
+                        </div>
+                        <p id="diagSymptomsText" class="text-xs text-slate-300 leading-relaxed">
+                            Irregular dark brown/black water-soaked lesions on leaves and stems. White cottony fungal growth on underside in humid conditions. Rapid foliage collapse.
+                        </p>
+                    </div>
+
+                    <!-- Treatment & Action Plan Tabs Section -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-1">
+                            <h3 class="font-display font-bold text-sm text-white flex items-center gap-2">
+                                <i class="fa-solid fa-kit-medical text-emerald-400"></i> Agronomic Remediation Protocol
+                            </h3>
+                            <span class="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/20">Action Steps</span>
+                        </div>
+
+                        <!-- Tab Header Buttons -->
+                        <div class="flex gap-2 text-xs border-b border-white/10 pb-2">
+                            <button data-tab="triage" class="tab-btn active px-3 py-1.5 rounded-lg font-medium text-slate-300 transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-hand text-rose-400"></i> Immediate Triage
+                            </button>
+                            <button data-tab="organic" class="tab-btn px-3 py-1.5 rounded-lg font-medium text-slate-300 transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-leaf text-lime-400"></i> Organic / Bio
+                            </button>
+                            <button data-tab="chemical" class="tab-btn px-3 py-1.5 rounded-lg font-medium text-slate-300 transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-flask-vial text-cyan-400"></i> Chemical Control
+                            </button>
+                            <button data-tab="prevention" class="tab-btn px-3 py-1.5 rounded-lg font-medium text-slate-300 transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-shield-halved text-emerald-400"></i> Prevention
+                            </button>
+                        </div>
+
+                        <!-- Tab Content Container -->
+                        <div id="tabContentTriage" class="tab-pane space-y-2 text-xs">
+                            <ul id="listTriageRemedies" class="space-y-1.5 text-slate-300">
+                                <!-- Populated dynamically -->
+                            </ul>
+                        </div>
+                        <div id="tabContentOrganic" class="tab-pane hidden space-y-2 text-xs">
+                            <ul id="listOrganicRemedies" class="space-y-1.5 text-slate-300">
+                                <!-- Populated dynamically -->
+                            </ul>
+                        </div>
+                        <div id="tabContentChemical" class="tab-pane hidden space-y-2 text-xs">
+                            <ul id="listChemicalRemedies" class="space-y-1.5 text-slate-300">
+                                <!-- Populated dynamically -->
+                            </ul>
+                        </div>
+                        <div id="tabContentPrevention" class="tab-pane hidden space-y-2 text-xs">
+                            <ul id="listPreventionRemedies" class="space-y-1.5 text-slate-300">
+                                <!-- Populated dynamically -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons: Print/PDF Report, Save, Retake -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/10">
+                        <div class="flex items-center gap-2">
+                            <button id="btnExportReportPDF" class="px-3.5 py-2 rounded-xl bg-forest-800 hover:bg-forest-700 border border-emerald-500/25 text-slate-200 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-pdf text-rose-400"></i> Export PDF Report
+                            </button>
+                            <button id="btnShareDiagnosis" class="px-3.5 py-2 rounded-xl bg-forest-800 hover:bg-forest-700 border border-emerald-500/25 text-slate-200 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-share-nodes text-cyan-400"></i> Share
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button id="btnRetakeScan" class="px-3.5 py-2 rounded-xl bg-forest-800 hover:bg-forest-700 border border-white/10 text-slate-300 hover:text-white text-xs transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-rotate-left"></i> Retake
+                            </button>
+                            <button id="btnSaveToLog" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-bookmark"></i> Saved to Records
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- =========================================================================
+         Analytics & Data Visualization Dashboard
+         ========================================================================= -->
+    <section id="analytics-section" class="max-w-7xl mx-auto px-4 lg:px-8 py-8 border-t border-white/5">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-lime-400"></span>
+                    <h2 class="font-display font-extrabold text-2xl text-white">Pathology Analytics & Trend Matrix</h2>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Real-time epidemiological surveillance and crop disease prevalence metrics.</p>
+            </div>
+
+            <!-- Timeframe Filter -->
+            <div class="flex items-center gap-1 bg-forest-950 p-1 rounded-xl border border-white/10 text-xs">
+                <button class="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-medium">All History</button>
+                <button class="px-3 py-1 rounded-lg text-slate-400 hover:text-white">Last 7 Days</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Chart 1: Disease Distribution (Doughnut) -->
+            <div class="glass-panel p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-display font-bold text-sm text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-emerald-400"></i> Disease Distribution
+                    </h3>
+                    <span class="text-[10px] font-mono text-slate-400">Prevalence</span>
+                </div>
+                <div class="relative h-64 w-full flex items-center justify-center">
+                    <canvas id="chartDiseaseDist"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Scan Volume & Infection Trend (Line) -->
+            <div class="glass-panel p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-display font-bold text-sm text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-lime-400"></i> Scan Volume & Disease Trend
+                    </h3>
+                    <span class="text-[10px] font-mono text-slate-400">Daily Timeline</span>
+                </div>
+                <div class="relative h-64 w-full">
+                    <canvas id="chartScanTrends"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Crop Severity Breakdown (Bar) -->
+            <div class="glass-panel p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-display font-bold text-sm text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-simple text-cyan-400"></i> Severity by Crop
+                    </h3>
+                    <span class="text-[10px] font-mono text-slate-400">Condition Stack</span>
+                </div>
+                <div class="relative h-64 w-full">
+                    <canvas id="chartCropSeverity"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         Historical Scan Log Table & Records Management
+         ========================================================================= -->
+    <section id="scan-history-section" class="max-w-7xl mx-auto px-4 lg:px-8 py-8 border-t border-white/5">
+        <div class="glass-panel p-6 space-y-6">
+            
+            <!-- Table Header Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-display font-extrabold text-xl text-white flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Historical Scan Repository
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Filter, inspect, export, or purge past prediction records saved in LocalStorage.</p>
+                </div>
+
+                <!-- Export & Batch Action Buttons -->
+                <div class="flex items-center gap-2">
+                    <button id="btnExportCSV" class="px-3 py-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-emerald-500/25 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i> Export CSV
+                    </button>
+                    <button id="btnExportJSON" class="px-3 py-1.5 rounded-lg bg-forest-800 hover:bg-forest-700 border border-cyan-500/25 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-code text-cyan-400"></i> Export JSON
+                    </button>
+                    <button id="btnClearHistory" class="px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i> Clear All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters & Search Toolbar -->
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
+                <!-- Search input -->
+                <div class="sm:col-span-6 relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="inputSearchRecords" placeholder="Search by crop, disease, pathogen, or ID..." 
+                           class="w-full pl-9 pr-4 py-2 bg-forest-950/80 border border-emerald-500/20 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 transition-colors">
+                </div>
+
+                <!-- Severity Filter Dropdown -->
+                <div class="sm:col-span-3">
+                    <select id="selectFilterSeverity" class="w-full px-3 py-2 bg-forest-950/80 border border-emerald-500/20 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-400 transition-colors">
+                        <option value="ALL">All Severities</option>
+                        <option value="Healthy">Healthy Only</option>
+                        <option value="Mild">Mild Severity</option>
+                        <option value="Critical">Critical Severity</option>
+                    </select>
+                </div>
+
+                <!-- Crop Filter Dropdown -->
+                <div class="sm:col-span-3">
+                    <select id="selectFilterCrop" class="w-full px-3 py-2 bg-forest-950/80 border border-emerald-500/20 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-400 transition-colors">
+                        <option value="ALL">All Crops</option>
+                        <option value="Tomato">Tomato</option>
+                        <option value="Corn">Corn</option>
+                        <option value="Apple">Apple</option>
+                        <option value="Rice">Rice</option>
+                        <option value="Pepper">Bell Pepper</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Records Data Table -->
+            <div class="overflow-x-auto rounded-xl border border-white/10">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-forest-950/90 text-slate-400 uppercase font-mono text-[11px] border-b border-white/10">
+                        <tr>
+                            <th scope="col" class="py-3 px-4">Leaf Snapshot</th>
+                            <th scope="col" class="py-3 px-4">Scan ID & Date</th>
+                            <th scope="col" class="py-3 px-4">Crop & Diagnosis</th>
+                            <th scope="col" class="py-3 px-4">Severity</th>
+                            <th scope="col" class="py-3 px-4">Confidence</th>
+                            <th scope="col" class="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableRecordsBody" class="divide-y divide-white/5">
+                        <!-- Populated dynamically via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination / Counter Status -->
+            <div class="flex items-center justify-between text-xs text-slate-400 pt-2">
+                <div>
+                    Showing <span id="lblVisibleRecordsCount" class="font-bold text-emerald-400">0</span> records
+                </div>
+                <div class="font-mono text-[11px]">
+                    Auto-saved to client LocalStorage
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         Full Diagnosis Detailed Report Modal
+         ========================================================================= -->
+    <div id="modalReport" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-panel max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 relative border-emerald-500/30">
+            <!-- Close Button -->
+            <button id="btnCloseReportModal" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-forest-800 hover:bg-forest-700 text-slate-400 hover:text-white flex items-center justify-center transition-all">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-file-waveform"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Comprehensive Foliar Report</span>
+                    <h3 id="modalReportTitle" class="font-display font-bold text-2xl text-white">Tomato - Late Blight</h3>
+                </div>
+            </div>
+
+            <!-- Modal Body Details -->
+            <div id="modalReportContent" class="space-y-4 text-xs text-slate-300">
+                <!-- Content dynamically populated -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-forest-800 hover:bg-forest-700 text-slate-200 text-xs font-semibold flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> Print Report
+                </button>
+                <button id="btnCloseReportModalBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         Inference Backend Settings Modal
+         ========================================================================= -->
+    <div id="modalSettings" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-panel max-w-lg w-full p-6 sm:p-8 space-y-5 relative border-emerald-500/30">
+            <button id="btnCloseSettingsModal" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-forest-800 hover:bg-forest-700 text-slate-400 hover:text-white flex items-center justify-center transition-all">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <div>
+                    <h3 class="font-display font-bold text-xl text-white">AI Inference Configuration</h3>
+                    <p class="text-xs text-slate-400">Choose your neural classification engine.</p>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <!-- Option 1: Built-in Simulated Neural Network -->
+                <label class="block p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 cursor-pointer hover:bg-emerald-950/40 transition-colors">
+                    <div class="flex items-start gap-3">
+                        <input type="radio" name="backendType" value="SIMULATED" checked class="mt-0.5 text-emerald-500 focus:ring-emerald-400">
+                        <div>
+                            <div class="font-bold text-white text-sm">Built-in Neural Classifier (Client Edge)</div>
+                            <p class="text-slate-400 text-xs mt-0.5">High-fidelity procedural visual analyzer & 38-class agronomic rule engine. Works 100% offline with zero server setup.</p>
+                        </div>
+                    </div>
+                </label>
+
+                <!-- Option 2: Python REST API (FastAPI / Flask) -->
+                <label class="block p-3.5 rounded-xl border border-white/10 bg-forest-950/40 cursor-pointer hover:bg-forest-950/80 transition-colors">
+                    <div class="flex items-start gap-3">
+                        <input type="radio" name="backendType" value="API" class="mt-0.5 text-emerald-500 focus:ring-emerald-400">
+                        <div class="w-full">
+                            <div class="font-bold text-white text-sm">External Python API (FastAPI / Flask CNN)</div>
+                            <p class="text-slate-400 text-xs mt-0.5 mb-2">Connects to a local or remote Python server running ResNet50, MobileNetV3, or PyTorch.</p>
+                            
+                            <div class="space-y-2 mt-2">
+                                <label class="text-[11px] text-slate-400">Endpoint URL:</label>
+                                <input type="text" id="inputApiUrl" value="http://localhost:8000/api/predict" 
+                                       class="w-full px-3 py-1.5 bg-forest-900 border border-white/10 rounded-lg text-xs font-mono text-emerald-300">
+                                <div class="flex items-center gap-2 pt-1">
+                                    <button id="btnTestApiConnection" class="px-3 py-1 rounded bg-forest-800 hover:bg-forest-700 border border-white/10 text-[11px] text-slate-300">
+                                        <i class="fa-solid fa-network-wired mr-1"></i> Test Ping
+                                    </button>
+                                    <span id="lblApiPingResult" class="text-[11px] font-mono text-slate-400"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <button id="btnSaveSettings" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all">
+                    Apply & Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         Footer
+         ========================================================================= -->
+    <footer class="border-t border-white/5 py-8 mt-12 bg-forest-950/60 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-leaf text-emerald-400"></i>
+                <span class="text-slate-400 font-medium">AgriScan AI - Precision Agriculture & Foliar Pathology Diagnostics</span>
+            </div>
+            <div class="flex items-center gap-4 text-slate-400">
+                <span>HTML5 • Tailwind CSS • Chart.js • FontAwesome</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Application Scripts -->
+    <script src="js/disease-database.js"></script>
+    <script src="js/model-service.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/analytics.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
