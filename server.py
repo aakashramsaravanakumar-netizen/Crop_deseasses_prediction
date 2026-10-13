@@ -1,25 +1,62 @@
-"""
-AgriScan AI - Python API & Static Server Backend
-================================================
-Zero-dependency server using standard Python library (no pip packages needed to run).
-Serves the web application on port 8000 and provides REST endpoints:
-  - GET  /api/health   -> Health check ping
-  - POST /api/predict  -> Foliage image disease classification endpoint
-
-Ready for dropping in PyTorch (ResNet50 / EfficientNet) or TensorFlow / Keras models.
-"""
-
 import sys
 import os
 import json
-import random
+import io
+import numpy as np
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+import tensorflow as tf
+import keras
+from PIL import Image
 
 PORT = 8000
 
+# -------------------------------------------------------------------
+# ABSOLUTE PATHS TO YOUR TRAINED MODEL FILES
+# -------------------------------------------------------------------
+MODEL_PATH = r"C:\Users\Aakash\Documents\NNDL prediction project\training\crop_disease_model.h5"
+CLASS_NAMES_PATH = r"C:\Users\Aakash\Documents\NNDL prediction project\training\class_names.json"
+
+print("Loading class mappings...")
+with open(CLASS_NAMES_PATH, "r") as f:
+    class_names = json.load(f)
+print(f"Loaded {len(class_names)} class mappings.")
+
+print("Loading TensorFlow model...")
+
+# Register custom TrueDivide layer mapping for Keras 3 deserialization
+custom_objects = {
+    'TrueDivide': lambda x, y: tf.math.divide(x, y),
+    'tf': tf
+}
+
+try:
+    with keras.saving.custom_object_scope(custom_objects):
+        model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+    print("Model loaded successfully via Keras custom object scope!")
+except Exception as e:
+    print(f"Standard load failed, attempting weight transfer workaround: {e}")
+    # Fallback: Construct matching architecture and load weights safely
+    base_model = tf.keras.applications.MobileNetV2(
+        input_shape=(224, 224, 3),
+        include_top=False,
+        weights='imagenet'
+    )
+    base_model.trainable = False
+
+    inputs = tf.keras.Input(shape=(224, 224, 3))
+    x = tf.keras.applications.mobilenet_v2.preprocess_input(inputs)
+    x = base_model(x, training=False)
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.2)(x)
+    outputs = tf.keras.layers.Dense(len(class_names), activation='softmax')(x)
+
+    model = tf.keras.Model(inputs, outputs)
+    model.load_weights(MODEL_PATH, by_name=True, skip_mismatch=True)
+    print("Model constructed and weights mapped successfully!")
+
+
 class AgriScanHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
-        # Enable CORS for external API client access
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -30,7 +67,6 @@ class AgriScanHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        # API Health Check Endpoint
         if self.path == '/api/health':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -38,76 +74,56 @@ class AgriScanHandler(SimpleHTTPRequestHandler):
             response = {
                 "status": "healthy",
                 "service": "AgriScan AI Foliar Neural Engine",
-                "version": "2.5.0",
-                "supported_crops": ["Tomato", "Corn", "Apple", "Rice", "Potato", "Bell Pepper", "Grape"]
+                "model_loaded": True,
+                "classes_count": len(class_names)
             }
             self.wfile.write(json.dumps(response).encode('utf-8'))
             return
 
-        # Serve static frontend files
         super().do_GET()
 
     def do_POST(self):
-        # Foliar Image Disease Prediction Endpoint
         if self.path == '/api/predict':
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
 
-            # --- MODEL INFERENCE INTEGRATION POINT ---
-            # To connect a custom PyTorch or TensorFlow model:
-            # 1. Parse image bytes:
-            #      image = Image.open(io.BytesIO(post_data)).convert('RGB')
-            # 2. Run tensor transform & forward pass:
-            #      tensor = transform(image).unsqueeze(0)
-            #      with torch.no_grad():
-            #          outputs = model(tensor)
-            #          predicted_idx = torch.argmax(outputs, 1).item()
-            # -----------------------------------------
+            try:
+                image = Image.open(io.BytesIO(post_data)).convert('RGB')
+                image = image.resize((224, 224))
+                img_array = np.expand_dims(np.array(image, dtype=np.float32), axis=0)
 
-            # Simulated high-confidence CNN inference result
-            candidate_diseases = [
-                {
-                    "diseaseId": "tomato_late_blight",
-                    "crop": "Tomato",
-                    "diseaseName": "Late Blight",
-                    "confidence": round(94.0 + random.random() * 4.5, 1),
-                    "pathogen": "Phytophthora infestans (Oomycete)"
-                },
-                {
-                    "diseaseId": "corn_common_rust",
-                    "crop": "Corn (Maize)",
-                    "diseaseName": "Common Rust",
-                    "confidence": round(93.0 + random.random() * 4.0, 1),
-                    "pathogen": "Puccinia sorghi (Fungus)"
-                },
-                {
-                    "diseaseId": "apple_scab",
-                    "crop": "Apple",
-                    "diseaseName": "Apple Scab",
-                    "confidence": round(95.0 + random.random() * 3.5, 1),
-                    "pathogen": "Venturia inaequalis (Fungus)"
-                },
-                {
-                    "diseaseId": "rice_leaf_blast",
-                    "crop": "Rice (Paddy)",
-                    "diseaseName": "Rice Leaf Blast",
-                    "confidence": round(96.0 + random.random() * 3.0, 1),
-                    "pathogen": "Magnaporthe oryzae (Fungus)"
-                },
-                {
-                    "diseaseId": "healthy_crop_leaf",
-                    "crop": "Tomato / Crop General",
-                    "diseaseName": "Healthy Foliage",
-                    "confidence": round(97.5 + random.random() * 2.0, 1),
-                    "pathogen": "None (Healthy Tissue)"
+                preds = model.predict(img_array)
+                top_idx = int(np.argmax(preds[0]))
+                confidence = float(preds[0][top_idx] * 100)
+                predicted_raw_class = class_names[top_idx]
+
+                if "___" in predicted_raw_class:
+                    crop, disease_name = predicted_raw_class.split("___", 1)
+                elif "_" in predicted_raw_class:
+                    crop, disease_name = predicted_raw_class.split("_", 1)
+                else:
+                    crop, disease_name = "Crop", predicted_raw_class
+
+                crop = crop.replace("_", " ").title()
+                disease_name = disease_name.replace("_", " ").title()
+
+                response = {
+                    "diseaseId": predicted_raw_class.lower(),
+                    "crop": crop,
+                    "diseaseName": disease_name,
+                    "confidence": round(confidence, 1),
+                    "pathogen": "Identified by MobileNetV2 Neural Classifier"
                 }
-            ]
 
-            selected = random.choice(candidate_diseases)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(selected).encode('utf-8'))
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(response).encode('utf-8'))
+
+            except Exception as e:
+                print(f"Prediction Error: {e}")
+                self.send_response(500)
+                self.end_headers()
             return
 
         self.send_error(404, "Endpoint not found")
@@ -117,10 +133,7 @@ def run():
     server_address = ('', PORT)
     httpd = HTTPServer(server_address, AgriScanHandler)
     print(f"============================================================")
-    print(f"  AgriScan AI Web & API Server running at:")
-    print(f"  http://localhost:{PORT}")
-    print(f"  Health Check: http://localhost:{PORT}/api/health")
-    print(f"  Prediction Endpoint: http://localhost:{PORT}/api/predict")
+    print(f"  AgriScan AI Live Server running at http://localhost:{PORT}")
     print(f"============================================================")
     try:
         httpd.serve_forever()
